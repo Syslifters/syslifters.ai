@@ -1,0 +1,717 @@
+---
+url: https://docs.syslifters.ai/getting-started/pentest-not-a-scan.md
+description: >-
+  Why a syslifters.ai run is a time-boxed penetration test and not a scan that
+  always finishes.
+---
+
+# A pentest, not a vulnerability scan
+
+A vulnerability scanner runs a fixed list of checks and stops when the list is done. syslifters.ai works like a human penetration tester: agents explore the application, follow leads, chain issues together and dig deeper where something looks promising. That kind of testing might have no natural end.
+
+## A run is a time box
+
+Treat every project as a time box, the same way you would budget a fixed number of days for a manual pentest.
+
+* A run **might complete** on its own once every planned test has been done.
+* A run **might not complete** within the time you have. New surface found during testing creates new work, and difficult areas can take long.
+* When your time is up, end the run with **Stop hunting**. Testing stops, but the findings that already exist are still verified and reported. See [Safety controls](/getting-started/safety-controls#stop-hunting).
+
+A project that ends with the status **completed with gaps** is a normal result. It means some planned tests were skipped, usually because hunting was stopped. The **Coverage** tab shows which tests ran and which did not.
+
+## Keep the scope focused
+
+Every run starts with recon, which maps the application before any vulnerability testing begins. Recon time grows with the size of the target. A very large project (many hosts, many applications or a huge application) can spend a large part of the time box on recon alone, which leaves less time for actual testing.
+
+To get the most out of the time box:
+
+* Put only the systems you really want tested into scope.
+* Split large or unrelated targets into several projects instead of one big project.
+* Give complete, precise seed URLs so recon finds the relevant parts quickly. See [Scope](/legal/scope#seed-urls).
+* Provide test accounts for every role, especially administrators, so agents can test the administrative functionality instead of guessing at it. See [Test accounts](/getting-started/test-accounts#test-accounts).
+
+## No guarantee of completeness
+
+Like any penetration test, a run shows the vulnerabilities that were found within the time box. It does not prove that the application has no other vulnerabilities.
+
+## Checklist
+
+* \[ ] I have decided how much time this project gets and will use **Stop hunting** when it is over.
+* \[ ] The scope contains only what needs to be tested; large targets are split into several projects.
+* \[ ] I understand that "completed with gaps" is a normal outcome and that a run does not prove the absence of vulnerabilities.
+
+---
+
+---
+url: https://docs.syslifters.ai/getting-started/test-accounts.md
+description: >-
+  Why to test staging systems, how to provide test accounts and what side
+  effects to expect.
+---
+
+# Test systems and accounts
+
+## Use a staging system
+
+::: warning We strongly recommend testing staging systems
+Point syslifters.ai at a staging or test environment, not at production. The agents behave like a real attacker: they create, change and delete data, submit forms, trigger emails and password resets and may lock accounts. On a staging system with test data, none of that affects real users or real data, and no real personal data reaches the AI models.
+:::
+
+A good staging system:
+
+* runs the same version and configuration as production;
+* contains realistic test data, but no real personal data;
+* can be reset or restored if the test leaves it in a bad state;
+* sends emails as in production, so flows such as password reset and registration can be tested;
+* has payments integrated with the payment provider's sandbox, so payment flows can be tested without real money.
+
+If you must test production, agree on that explicitly with the system owner, use dedicated test accounts and expect the side effects listed below.
+
+## Test accounts
+
+Most vulnerabilities are behind the login. Provide test accounts so the agents can reach the authenticated parts of the application.
+
+Enter them in **Test accounts** when you create the project (or later with **Edit accounts** on the **Overview** tab), one account per line:
+
+```text
+alice@example.com:Secret123!:user
+bob@example.com:Secret456!:user
+admin@example.com:Secret789!:admin
+api-client:eyJhbGciOi...:api
+```
+
+The format is `username:password` or `username:api-token`, optionally followed by `:role`.
+
+`role` is any short label you choose. It is not checked against a fixed list: write whatever names that account in your application, such as `user`, `admin`, `billing` or `read-only API`. Agents use the label to tell the accounts apart. Leave it off when the username is enough.
+
+* Use **dedicated test accounts only**. Never use accounts of real users or your own personal accounts.
+* Provide **at least two accounts per role**. Agents need two accounts to prove that one user can access another user's data.
+* Provide accounts for **every role** the application has, including administrators.
+* Agents may change the data of these accounts. They are told to keep the accounts usable, but plan for a reset after the test.
+
+::: warning Missing administrative accounts cost time
+Without administrative accounts, agents cannot see the administrative functionality. They spend the [time box](/getting-started/pentest-not-a-scan) guessing at admin endpoints instead of testing them, and authorization checks between normal users and administrators stay largely untested. The test becomes slower and less efficient. The same might apply to other missing roles.
+:::
+
+## Lockout testing
+
+By default, agents protect the provided accounts: they do not lock them out, change their passwords or exhaust MFA attempts, and they prove missing brute-force protection with a small number of attempts only.
+
+The **Lockout testing** switch on the **Overview** tab allows destructive authentication tests (account lockout, brute force, MFA exhaustion). Agents then still prefer throwaway accounts, but a provided account can end up locked. Only turn it on if that is acceptable.
+
+## Account manager (optional)
+
+If you give the agents an administrator account of the target application under **Account manager** on the **Overview** tab, they can create fresh accounts, unlock locked accounts and get throwaway accounts for destructive tests on their own. The accounts created this way are listed under **Managed accounts**.
+
+The administrator credential is used by an agent in the application's admin interface and is processed by the AI model like any other credential.
+
+## Side effects to expect
+
+Tell the system owner to expect, among others:
+
+* new, changed and deleted records created by the agents;
+* emails, notifications and password reset messages triggered by the application;
+* locked accounts (with lockout testing on, or after many failed logins);
+* entries in logs and alerts in monitoring or intrusion detection systems;
+* increased load during the run.
+
+## Checklist
+
+* \[ ] The target is a staging system with test data, or production testing is explicitly agreed.
+* \[ ] The staging system sends emails (for example password reset) to mailboxes I can access, and payments use the provider's sandbox.
+* \[ ] I provided dedicated test accounts for every role, including administrators, at least two per role, and no real user accounts.
+* \[ ] Lockout testing is only on if locked accounts are acceptable.
+* \[ ] The system owner knows which side effects to expect and how to reset the system afterwards.
+
+---
+
+---
+url: https://docs.syslifters.ai/getting-started/safety-controls.md
+description: Permission modes, approvals, Pause and Stop hunting.
+---
+
+# Safety controls
+
+The [scope](/legal/scope) is the hard boundary: agents can never reach an out-of-scope host. Within the scope, these controls decide how much the agents may do without asking you, and how you stop them.
+
+## Permission modes
+
+Every project has a **Permission mode**. It decides which agent actions need your approval.
+
+| Mode | Behaviour | Use it when |
+| --- | --- | --- |
+| **Bypass approvals** | In-scope actions run without asking. | You trust the scope and want an uninterrupted run, typically on a staging system. |
+| **Auto-classify actions** (default) | Agents run normal actions on their own. An action that the model's safety classifier flags as risky is held until you decide. | The usual choice: you are only asked about risky actions. |
+| **Approve flagged actions** | The strictest mode: flagged actions always wait for your decision. | Sensitive targets where you want to review risky actions yourself. Expect many approval requests. |
+
+In every mode, an action that targets an out-of-scope host is never executed silently; it becomes an approval request.
+
+Depending on the model, **Auto-classify** can still produce many approval requests (models differ in how much they flag). If that happens on a staging system, switching to **Bypass approvals** is usually the right answer.
+
+::: warning Bypass approvals is your decision
+With **Bypass approvals**, nobody reviews the agents' actions before they run. Every in-scope action is executed, including actions that change or delete data, lock accounts or put load on the system. Choosing this mode means you accept the impact of all those actions on the target, just as if you had approved each one yourself.
+
+Only choose it if the system owner has agreed to this kind of testing and the target can tolerate it, typically a staging system that can be reset. The scope boundary still applies: out-of-scope hosts remain unreachable.
+:::
+
+### Changing the mode during a run
+
+You can change the mode at any time on the **Overview** tab (**Apply mode**).
+
+* Loosening the mode (for example to **Bypass approvals**) applies immediately, also to agents that are already running.
+* Tightening the mode applies to agents that start afterwards. Agents that are already running keep the looser mode until they finish. Pause and resume the project if the stricter mode must apply to everyone at once.
+
+## Approvals
+
+When an agent needs your decision, the workspace shows an approval request with the agent, the action and its reason.
+
+* **Allow once** lets this single action run.
+* **Allow & add host** (for a host that is out of scope) lets the action run and adds the host to the project's scope permanently. Only use it if your [authorization](/legal/authorization) covers that host.
+* **Deny** blocks the action. The agent continues with something else.
+
+An approval request that nobody answers is denied automatically after about 10 minutes. Only that single action is denied; the run continues.
+
+::: warning You are responsible for what you allow
+An approval is a decision you make on behalf of the test. When you allow an action, you take responsibility for its effect on the target, including data changes, locked accounts, triggered emails and load. When you add a host, you confirm that your [authorization](/legal/authorization) covers it.
+
+Read the action and its reason before you decide. If you cannot judge the impact, choose **Deny**: the agent continues with other tests, and you lose at most that single action.
+:::
+
+The **Approvals** button in the workspace header shows all past decisions, including who decided and when.
+
+## Pause and Resume
+
+**Pause** stops all agents of the project. **Resume** continues the run where it stopped; agents pick up their work where they left off. Use Pause whenever you need the agents to stop for a while, for example when the system owner reports a problem.
+
+## Stop hunting
+
+**Stop hunting** ends the testing for good. Use it when the [time box](/getting-started/pentest-not-a-scan) is over.
+
+* Hunting agents that are running or waiting are aborted.
+* Every test that has not run yet is marked as skipped.
+* Findings that already exist are still verified, reported and illustrated.
+* The project then finishes as **completed with gaps**.
+
+::: warning Stop hunting cannot be undone
+Hunting cannot be resumed after Stop hunting. If you only want to stop for now and continue later, use **Pause** instead.
+:::
+
+## If something goes wrong on the target
+
+If the target shows problems during a run (errors, high load, unexpected data changes):
+
+1. Press **Pause**. All agents stop.
+2. Check the **Agents** tab to see which agents were running and what they did.
+3. Clarify the problem with the system owner. If needed, narrow the scope with **Edit scope** or tighten the permission mode.
+4. Press **Resume** to continue, or **Stop hunting** to end the test with the findings found so far.
+
+## Checklist
+
+* \[ ] I chose a permission mode that fits the target (staging or production).
+* \[ ] If I use **Bypass approvals**, I accept the impact of every in-scope action the agents take.
+* \[ ] I only allow actions whose impact I can judge and accept.
+* \[ ] I will be available to answer approval requests during the run, or I chose **Bypass approvals**.
+* \[ ] I know the difference between **Pause** (resumable) and **Stop hunting** (final).
+
+---
+
+---
+url: https://docs.syslifters.ai/getting-started/quickstart.md
+description: Create and run your first syslifters.ai project.
+---
+
+# Quickstart
+
+This guide takes you from an empty project list to a report. Before you start, read the pages under [Before you start](/#before-you-start); they cover your responsibilities and how to avoid unwanted impact on the target.
+
+## 1. Sign in
+
+Open syslifters.ai in your browser and sign in with your company account. You land on the **Projects** list.
+
+## 2. Create a project
+
+Click **New project** and fill in the form.
+
+### Basics
+
+| Field | What to enter |
+| --- | --- |
+| **Project name** | A name you recognise, for example "Customer portal staging". |
+| **Data residency** | Which models may process the project's data. See [Data residency](/legal/data-handling#data-residency). |
+| **Permission mode** | How much the agents may do without asking you. **Auto-classify actions** is a good default. See [Permission modes](/getting-started/safety-controls#permission-modes). |
+| **Model** | The AI model the agents use. Models that your data residency setting does not allow are greyed out. |
+| **Reasoning effort** | Higher is more thorough, but slower and more expensive. Leave the default if unsure. |
+| **Target types** | **Web app**, **API** and/or **Mobile (Android)**. |
+
+### Scope and entry points
+
+| Field | What to enter |
+| --- | --- |
+| **In-scope hosts / URLs** | Every host the agents may test, one per line. |
+| **Out-of-scope hosts / URLs** | Hosts the agents can never reach. |
+| **Seed URLs** | The entry points where recon starts: login page, application, API base URL. |
+
+If a login provider is out of scope, login requests to it never succeed and the agents cannot log in. If a payment provider is out of scope, payment requests to it never succeed.
+
+See [Scope](/legal/scope) for the exact syntax and how wildcards, ports and paths behave.
+
+### Accounts and context
+
+| Field | What to enter |
+| --- | --- |
+| **Test accounts** | `username:password` or `username:api-token`, optionally `:role`, one per line. `role` is any label you choose (for example `user` or `admin`), not a fixed keyword. Accounts for every role, including administrators, and at least two per role. See [Test accounts](/getting-started/test-accounts#test-accounts). |
+| **Notes** | Anything the agents should know: constraints, special flows, known quirks. |
+| **Source ZIP / mobile app** | Optional. A ZIP of the application's source code helps the agents find vulnerabilities faster. For mobile projects, upload the `.apk`. |
+| **Reference docs** | Optional. API specifications (for example OpenAPI files), user manuals or other documents. Agents can read them but never change them. |
+| **Create a SysReptor project automatically** | Turn it on to have the report project created for you. Recommended. |
+
+Remember that uploaded source code and documents are processed by the selected model. See [Data handling](/legal/data-handling).
+
+Click **Create project**. The project opens in its workspace.
+
+## 3. Start the run
+
+Check the **Overview** tab: scope, seed URLs and accounts should be what you expect. Then click **Start run**.
+
+The run goes through recon, hunting, verification and reporting. You can follow it in the workspace:
+
+* **Overview**: the current phase and the project's settings.
+* **Knowledge**: the documentation of the application the agents build during recon.
+* **Coverage**: which test categories have been run.
+* **Findings**: suspected and confirmed vulnerabilities.
+* **Agents**: every agent, its status and what it is doing.
+* **Cost**: the model cost of the run.
+
+## 4. Answer approval requests
+
+Depending on the permission mode, agents ask for your approval before risky actions or before touching a host that is not in scope. Answer with **Allow once**, **Allow & add host** or **Deny**. Unanswered requests are denied after about 10 minutes. See [Approvals](/getting-started/safety-controls#approvals).
+
+## 5. Review findings
+
+Suspected vulnerabilities appear in the **Findings** tab as soon as an agent reports them. Each one is then reproduced by an independent agent from a clean session. Only reproduced vulnerabilities become confirmed findings, with the evidence (requests, responses, screenshots) attached.
+
+## 6. End the run
+
+The run either finishes on its own or you end it when your time box is over:
+
+* **Pause** stops all agents; **Resume** continues later.
+* **Stop hunting** ends testing for good. Existing findings are still verified and reported. See [Stop hunting](/getting-started/safety-controls#stop-hunting).
+
+## 7. Report
+
+If the project has a SysReptor project, confirmed findings are written into it automatically, including screenshots. If you linked SysReptor after findings were already confirmed, use **Report to SysReptor** in the **Findings** tab to push them. Review and finalise the report in SysReptor.
+
+---
+
+---
+url: https://docs.syslifters.ai/legal/authorization.md
+description: You are responsible for holding permission to test every target.
+---
+
+# Authorization
+
+::: danger You are responsible for authorization
+You must hold permission to test every system you put into a syslifters.ai project. If the target is hosted by a third party (for example a cloud provider, hosting company or SaaS platform), you must also have that hoster's permission where it is required.
+
+syslifters.ai fully delegates this responsibility to you. It does not check whether you have permission, and it does not prescribe the form, time window or content of that permission.
+:::
+
+This applies to:
+
+* every host and URL in the project's scope and seed URLs;
+* every host you add to the scope later, through **Edit scope** or by approving an agent's request to add a host (see [Scope](/legal/scope#changing-scope-during-a-run));
+* every test account and every account manager credential you provide.
+
+Only start or continue a run if your permission covers everything in scope.
+
+## Checklist
+
+* \[ ] I hold permission to test every host in scope.
+* \[ ] If the target is hosted by a third party, I have the hoster's permission where required.
+* \[ ] I will only add hosts to the scope during the run if my permission covers them.
+
+---
+
+---
+url: https://docs.syslifters.ai/legal/scope.md
+description: >-
+  How in-scope hosts, out-of-scope hosts and seed URLs define what syslifters.ai
+  agents may touch.
+---
+
+# Scope
+
+The scope defines which systems the agents are allowed to send traffic to. It is enforced technically: every request from an agent passes through a proxy and a firewall that only let in-scope traffic through. An agent cannot reach an out-of-scope host, even if it tries.
+
+You set the scope in three fields when you create a project:
+
+| Field | Purpose |
+| --- | --- |
+| **In-scope hosts / URLs** | Everything the agents are allowed to touch. |
+| **Out-of-scope hosts / URLs** | Exceptions. They always win over in-scope entries. |
+| **Seed URLs** | Entry points where recon starts. They are in scope automatically. |
+
+Write one entry per line in each field.
+
+## In-scope entries
+
+| You write | What is in scope |
+| --- | --- |
+| `app.example.com` | The whole host, on every port. |
+| `app.example.com:8443` | Only that one service: the host on port 8443. |
+| `https://app.example.com` | The host on port 443 (the default port of the scheme). |
+| `http://app.example.com:8080/` | The host on port 8080. |
+| `*.example.com` | Every subdomain of `example.com`, on every port. It does **not** include `example.com` itself; add that as a separate line. |
+| `203.0.113.10` | That IP address, on every port. |
+
+::: warning Scope is per host and port, not per path
+A URL path does not limit the scope. `https://app.example.com/shop` puts **all** of `app.example.com` on port 443 into scope, including `/admin`. If parts of a host must not be tested, the host cannot be split by path; agree with the system owner that the whole host may be tested, or leave it out.
+:::
+
+## Out-of-scope entries
+
+Out-of-scope entries always beat in-scope entries ("deny wins"). Use them to cut exceptions out of a wider scope.
+
+| You write | What is excluded |
+| --- | --- |
+| `payments.example.com` | The whole host, on every port, even if `*.example.com` is in scope. |
+| `app.example.com:9000` | Only port 9000 of that host. |
+| `https://sso.example.com` | The **whole** host. A URL without an explicit port excludes all ports, not only 443. |
+
+Typical exclusions are third-party services that the application uses but that you have no permission to test: payment providers, single sign-on providers, CDNs, analytics, chat widgets and email services. The agents may still see those services referenced in the application, but they cannot send traffic to them.
+
+## Seed URLs
+
+Seed URLs are where recon starts. Surface mapping, crawling and attack planning all begin from them, and their hosts are automatically in scope.
+
+* For web app and API projects at least one seed URL is required. Without seed URLs, recon does not run and the hunting agents work without a map of the application.
+* List the entry points completely: the login page, the main application, the API base URL, an admin area, documentation such as an OpenAPI file. A part of the application that recon never reaches is never tested.
+* For mobile-only projects the uploaded app (`.apk`) is the entry point, and seed URLs are optional.
+
+## Changing scope during a run
+
+There are two ways the scope changes after a project was created. In both cases you are responsible for having [permission](/legal/authorization) for the new host.
+
+### Edit scope
+
+On the **Overview** tab, **Edit scope** lets you change the in-scope and out-of-scope lists at any time.
+
+* The change applies immediately to agents that are already running, both additions and removals. A removed host loses access within seconds.
+* Agents are told about the change the next time they continue: a new host is reported as reachable, a removed host as off limits.
+* If hosts are added while the project is hunting, the already tested categories are reopened so the new host gets tested too. A paused or finished project needs **Resume** for that.
+
+### Approving an agent's request
+
+When an agent needs a host that is not in scope (for example an API on another subdomain it discovered), it asks you through an approval request. **Allow & add host** adds the host to the scope permanently for the whole project. **Allow once** only allows that single action. **Deny** blocks it. See [Safety controls](/getting-started/safety-controls#approvals).
+
+## Checklist
+
+* \[ ] Every in-scope entry is covered by my authorization, including all ports and paths of each host.
+* \[ ] Third-party services (payment, SSO, CDN, analytics) are listed as out of scope.
+* \[ ] Seed URLs cover every entry point of the application.
+* \[ ] Wildcards (`*.example.com`) only cover subdomains I am allowed to test.
+
+---
+
+---
+url: https://docs.syslifters.ai/legal/data-handling.md
+description: >-
+  Which data reaches AI models, how the data residency setting limits model
+  choice, and how project data is deleted.
+---
+
+# Data residency and data handling
+
+## Which data reaches the AI models
+
+The agents use AI models (LLMs). Everything an agent works with is sent to the model that runs it. That includes:
+
+* responses from the target system, including any personal or confidential data the application returns;
+* the test account credentials and account manager credentials you provide;
+* uploaded source code, mobile apps and reference documents;
+* the project's notes, scope and findings.
+
+Test against [staging systems with test data](/getting-started/test-accounts) wherever possible, so that no real personal data reaches a model in the first place.
+
+## Data residency
+
+syslifters.ai itself is hosted within the EU. The project, its evidence and the agents' working data stay on that infrastructure.
+
+Every project has a **Data residency** setting. It limits which models the project may use, based on where each model processes data.
+
+| Setting | Models the project may use |
+| --- | --- |
+| **Local only** | Only models that run on infrastructure operated by Syslifters. |
+| **EU only** | Local models, plus models that process data within the EU. |
+| **Unrestricted** | Any model, including providers that process data outside the EU. |
+
+With **EU only**, syslifters.ai and every model the project uses both process data inside the EU, so all project data stays within the EU.
+
+Choose the setting according to your agreement with the system owner and the kind of data the target holds. The setting is enforced strictly:
+
+* The model picker greys out every model the setting does not allow.
+* Before every agent starts, the model is checked against the setting. If the model is not allowed (or its data location is unknown), the agent does not start and the workspace shows an error. A run never falls back to a model outside your setting.
+
+## Evidence
+
+Agents' traffic to the target is recorded as evidence: requests and responses, screenshots and the agents' notes. The evidence is kept with the project so you can review and reproduce findings, and it is used for the report.
+
+## Deleting a project
+
+**Delete** in the project workspace removes the project and all of its data: the knowledge, findings, approvals, evidence, recorded traffic, uploaded files and the agents' working data. Deletion cannot be undone.
+
+* Pause a running project before deleting it.
+* To confirm, you type the project's name.
+* A linked **SysReptor report is not deleted**. It lives on the reporting platform; delete it there if needed.
+
+## Checklist
+
+* \[ ] I chose the data residency setting according to my agreement with the system owner.
+* \[ ] I know that syslifters.ai is hosted in the EU, and that **EU only** keeps all project data within the EU — on syslifters.ai and on the models.
+* \[ ] I know that target responses, credentials and uploaded files are processed by the selected model.
+* \[ ] I prefer staging systems with test data so no real personal data is processed.
+* \[ ] I know that deleting the project does not delete the SysReptor report.
+
+---
+
+---
+url: https://docs.syslifters.ai/integrations/burp-extension.md
+description: >-
+  Load a finding's reproduction chain into Burp Repeater with the syslifters.ai
+  Burp extension.
+---
+
+# Burp Suite extension
+
+The Burp Suite extension loads a confirmed finding into Burp so you can reproduce and extend it by hand.
+
+For each finding you send, it:
+
+* opens one **Repeater** tab per request, in the order the requests were sent, named `DAST#<finding> <n>/<N> <step>` (for example `DAST#42 1/3 login`);
+* adds every request with its captured response to **Organizer**, with the agent's note for that step attached;
+* shows the whole chain (step, method, URL, status, note) in the extension's own **DAST** tab.
+
+## Download and install
+
+Download dast-burp.jar (current version 0.1.0)
+
+Requirements: Burp Suite Professional or Community (2025.x or newer) and Java 17 or newer.
+
+1. In Burp, open **Extensions** → **Installed** → **Add**.
+2. Set **Extension type** to **Java** and select `dast-burp.jar`.
+3. A new **DAST** tab appears in Burp's top bar.
+
+## Pair Burp with a project
+
+A pairing code connects one Burp instance to one project.
+
+1. In syslifters.ai, open the project and go to the **Findings** tab.
+2. Click **Generate code**. The code appears in the **Burp pairing code** field.
+3. In Burp's **DAST** tab, fill in:
+   * **DAST URL**: the address you open syslifters.ai at.
+   * **Label** (optional): a name for this Burp instance, shown next to "Burp connected" in syslifters.ai.
+   * **Pairing code**: paste the code, or click **Paste** to take it from the clipboard.
+4. Click **Connect**. The status changes to connected, and the Findings tab shows **Burp connected**.
+
+Burp connects out to syslifters.ai. It opens no listener, so nothing is exposed on your machine. Burp remembers the URL, label and code and reconnects automatically after a dropped connection or a restart.
+
+::: tip Each code belongs to one project
+A code only works for the project it was generated in. Generate a new code when you switch projects, and paste it into Burp.
+:::
+
+## Send a finding to Burp
+
+Click **Burp** next to a finding on the **Findings** tab. The button is only enabled once a pairing code is set. When Burp has loaded the requests, syslifters.ai shows how many Repeater tabs were created.
+
+What Burp receives depends on how the finding was verified:
+
+* **Curated chain.** The verifier replays every finding cleanly and marks each step. Burp receives only the requests of that replay, grouped into named steps with the agent's notes.
+* **Unfiltered capture.** If a finding has no marked replay, Burp receives the captured traffic to the affected hosts instead, capped at 50 requests. Click **Re-test** on the finding to get a curated chain.
+
+## Repeater tab groups
+
+Burp's extension API cannot create Repeater tab groups or put tabs into one. To keep the `DAST#…` tabs together, set **Settings** → **Tools** → **Repeater** → **Default group for new tabs** once. The shared `DAST#` prefix also keeps them next to each other.
+
+## Without the extension
+
+You can download the same reproduction chain as JSON, with each request and response base64-encoded:
+
+```text
+GET /api/findings/<finding-id>/burp-bundle/?download=1
+```
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| Status shows `Closed (4404 …)` | The code is unknown, for example because it was mistyped or the project was deleted. Generate a new code. |
+| Connection fails with HTTP 403 | The **DAST URL** does not match the address syslifters.ai is served at. Use exactly the URL you open in the browser. |
+| Findings tab shows **Burp not connected** | Burp is not running, the extension is unloaded, or Burp uses a different code. Check the status in Burp's **DAST** tab. |
+| The **Burp** button is disabled | No pairing code is set on the Findings tab, or the page lost its connection. Generate a code or reload the page. |
+| Burp shows `UNFILTERED` | The finding has no marked replay. Re-test the finding. |
+
+---
+
+---
+url: https://docs.syslifters.ai/404.md
+description: Page not found.
+---
+
+## Page not found
+
+If you followed an old link, you may be redirected automatically. Otherwise, use the search or navigation to find the page.
+
+---
+
+---
+url: https://docs.syslifters.ai/privacy.md
+description: Privacy notice for docs.syslifters.ai.
+---
+
+## Privacy notice
+
+### Data Protection, Responsibility, and Scope
+
+We respect the privacy of our customers and other interested parties and comply with applicable laws to protect your privacy. These laws include, in particular:
+
+* the European Union General Data Protection Regulation ("GDPR")
+
+This privacy notice applies to:
+
+* Website: docs.syslifters.ai
+
+The following categories of data subjects are covered by this data protection notice:
+
+* Website visitors
+
+The party responsible for processing your personal data under this Privacy Notice is:
+
+Syslifters GmbH\
+Eitzersthal 75\
+2013 Göllersdorf\
+Austria\
+hello@syslifters.com
+
+In the following, we explain:
+
+* For what purposes personal data is collected and processed.
+* Which categories of personal data are affected by the collection and processing.
+* On what legal basis we process personal data.
+* Which involved third parties, acting as data processors, are engaged in the processing of personal data.
+* To which third parties personal data is transmitted.
+* Further information, such as data retention periods, the rights of data subjects, and other details that help inform you about the described data processing.
+
+## Purposes for which personal data is processed
+
+### Website hosting
+
+To make our website accessible to you and ensure its secure and reliable operation, we rely on website hosting services. This involves storing website content, managing technical infrastructure, and processing certain personal data that is automatically transmitted when you visit our website. The processing of this data is necessary to maintain the functionality, security, and performance of our website, as well as to detect and prevent misuse or technical issues.
+
+#### Categories of personal data that are processed:
+
+* Device Information
+* Log data
+* Technical Information
+* User behavior relevant for error analysis
+
+#### Legal basis for processing:
+
+* Legitimate interest pursuant to Art. 6 para. 1 lit. f GDPR
+
+#### Involved data processors:
+
+* GitHub, Inc., 88 Colin P Kelly Jr St, 94107 San Francisco, California, United States of America
+
+#### Additional information:
+
+* Our legitimate interest lies in ensuring the security, stability, and proper functioning of our website, as well as in detecting and preventing misuse, technical faults, or unauthorized access.
+* Location of the datacenter where the website is hosted: United States of America
+
+### Offering live chat or chatbot features
+
+To provide users with real-time support and assistance, we offer AI chatbot features on our platform. These features enable users to receive automated responses to their inquiries. The processing of personal data is necessary to facilitate these interactions, ensure effective communication, and improve the quality of our support services.
+
+#### Categories of personal data that are processed:
+
+* Communications Data
+* Cookies and similar technologies
+* Information you provide as free text
+* Technical Information
+
+#### Legal basis for processing:
+
+* Legitimate interest pursuant to Art. 6 para. 1 lit. f GDPR
+
+#### Involved data processors:
+
+* Lyceum Technology Germany GmbH, Alte Jakobstraße 86, 10179 Berlin, Germany
+
+#### Additional information:
+
+* Our legitimate interest lies in providing timely and effective support to users, resolving their inquiries, and enhancing the overall quality of our services.
+* We ask that you do not transmit any special categories of personal data when contacting us. These categories include the following data:
+  * Ethnic origin.
+  * Political opinions.
+  * Religious or philosophical beliefs.
+  * Trade union membership.
+  * Genetic data.
+  * Biometric data.
+  * Health data.
+  * Data concerning sex life or sexual orientation.
+* If we become aware of a transfer of sensitive categories of data, we will arrange for these to be deleted under consideration of reasonable effort.
+
+## Additional Information
+
+### Data retention
+
+We retain your personal data only for as long as necessary to fulfill the purposes described in this privacy notice, or as long as required by contractual or legal retention obligations. Once your personal data is no longer needed for these purposes, or when applicable retention periods have expired, your data will be deleted or anonymized in accordance with applicable data protection laws.
+
+### Protection of Personal Data
+
+We safeguard personal data by implementing appropriate technical and organizational measures in accordance with applicable data protection laws and recognized industry standards. These measures include, where feasible, the pseudonymization and encryption of personal data both in transit and at rest. Our security practices are regularly reviewed and updated to ensure the ongoing confidentiality, integrity, and availability of your personal information.
+
+### Withdrawal of consent
+
+If you have given your consent to the processing of your personal data for a specific purpose based on Art. 6 para. 1 lit. a GDPR, you can withdraw this consent at any time. The lawfulness of the processing of the personal data until the withdrawal is not affected by the withdrawal.
+
+### Transfer of data
+
+We only transfer or disclose your personal data to third parties when required by applicable law, regulation, or legal process, or when it is necessary for the performance or provision of our services to you. In all cases, we ensure that any transfer of your personal data complies with relevant data protection laws, including the General Data Protection Regulation (GDPR) where applicable. Third-party data processors process personal data only as necessary to deliver the agreed-upon services, in accordance with our instructions and applicable data protection agreements. We do not sell your personal data to third parties. If we intend to use your personal data for purposes that require your consent under applicable law, we will obtain your explicit consent beforehand.
+
+### Rights of Data Subjects
+
+#### Right of Access
+
+You have the right to request at any time information about the personal data we store about you and to receive a copy of that information. Furthermore, you have the right to obtain confirmation as to whether the personal data in question is being processed.
+
+#### Right to Rectification
+
+Should your data be inaccurate or incomplete, we will rectify it upon request.
+
+#### Right to Data Portability
+
+If we process your personal data in an automated way based on your consent or based on a corresponding agreement, you have the right to request a copy of your data in a structured, commonly used, and machine-readable format, which can be sent to you or another party. This right applies only to the personal data that you have provided to us.
+
+#### Right to Restriction of Processing
+
+You have the right to request that we restrict the processing of your personal data under certain circumstances.
+
+#### Right to Erasure
+
+You have the right to have the personal data processed by us deleted, insofar as this is legally permissible.
+
+#### Objection to Processing
+
+You can object to the processing of your personal data, for example, by not using certain services. If you object to the processing of your personal data for certain purposes, this may result in the inability to use the services concerned.
+
+#### Right to Lodge a Complaint
+
+If you believe that we are not processing your personal data correctly, you can contact us. You also have the right to lodge a complaint with a supervisory authority. For more information on the supervisory authorities in the European Union, please click [here](https://ec.europa.eu/justice/article-29/structure/data-protection-authorities/index_en.htm).
+
+All rights can be exercised by sending an e-mail to the contact named at the beginning of this privacy notice.
+
+## Changes to this privacy notice
+
+We may update this privacy notice occasionally to reflect changes in our data processing practices, legal requirements, or other operational needs. Any modifications will be published on this page, and the "Date of publication" below will be updated accordingly. We encourage you to review this notice periodically to stay informed about how we protect your personal data.
+
+Date of publication of the current version: 31.10.2026

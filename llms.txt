@@ -1,0 +1,27 @@
+# syslifters.ai
+
+> Documentation for syslifters.ai.
+
+## Table of Contents
+
+### Getting started
+
+- [A pentest, not a vulnerability scan](https://docs.syslifters.ai/getting-started/pentest-not-a-scan.md): Why a syslifters.ai run is a time-boxed penetration test and not a scan that always finishes.
+- [Test systems and accounts](https://docs.syslifters.ai/getting-started/test-accounts.md): Why to test staging systems, how to provide test accounts and what side effects to expect.
+- [Safety controls](https://docs.syslifters.ai/getting-started/safety-controls.md): Permission modes, approvals, Pause and Stop hunting.
+- [Quickstart](https://docs.syslifters.ai/getting-started/quickstart.md): Create and run your first syslifters.ai project.
+
+### Legal and scope
+
+- [Authorization](https://docs.syslifters.ai/legal/authorization.md): You are responsible for holding permission to test every target.
+- [Scope](https://docs.syslifters.ai/legal/scope.md): How in-scope hosts, out-of-scope hosts and seed URLs define what syslifters.ai agents may touch.
+- [Data residency and data handling](https://docs.syslifters.ai/legal/data-handling.md): Which data reaches AI models, how the data residency setting limits model choice, and how project data is deleted.
+
+### Integrations
+
+- [Burp Suite extension](https://docs.syslifters.ai/integrations/burp-extension.md): Load a finding's reproduction chain into Burp Repeater with the syslifters.ai Burp extension.
+
+### Other
+
+- [Not found](https://docs.syslifters.ai/404.md): Page not found.
+- [Privacy](https://docs.syslifters.ai/privacy.md): Privacy notice for docs.syslifters.ai.
